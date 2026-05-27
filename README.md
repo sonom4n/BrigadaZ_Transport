@@ -55,7 +55,7 @@ modificación del control, solo configuración por JSON.
 
 ### Si sos un jugador de DayZ
 
-Suscribite al mod en Steam Workshop (link cuando esté publicado). Cuando el
+Suscribite al mod en Steam Workshop https://steamcommunity.com/sharedfiles/filedetails/?id=3732494954. Cuando el
 server lo cargue, vas a ver buses circulando por las rutas configuradas.
 **Subite (es F cerca de la parada para abrir la UI)** y dejá que te lleve.
 
