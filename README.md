@@ -90,7 +90,6 @@ server lo cargue, vas a ver buses circulando por las rutas configuradas.
 | [PAPER_PUBLICO.md](PAPER_PUBLICO.md) / [.pdf](PAPER_PUBLICO.pdf) | Modders, investigadores | Paper técnico completo: arquitectura, control vehicular, casos de uso, límites del framework |
 | [MANUAL_eAI_VEHICLES.md](MANUAL_eAI_VEHICLES.md) / [.pdf](MANUAL_eAI_VEHICLES.pdf) | Modders apurados | Versión esquemática del paper, 511 líneas |
 | [MOD_CONTEXT_FOR_AI.md](MOD_CONTEXT_FOR_AI.md) | Asistentes IA | Knowledge pack para subir al workspace de Claude/GPT/Gemini |
-| [PAPER_NOTES.md](PAPER_NOTES.md) | Curiosos / contributors | Notas internas de desarrollo (con citas del operador y observaciones de proceso) |
 
 ---
 
