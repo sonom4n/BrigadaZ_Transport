@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BrigadaZ Transport — DayZ Bot Driving & AI Vehicle Framework</title>
+  <meta name="description" content="Framework técnico para que NPCs conduzcan vehículos autónomamente en DayZ Standalone. Bot driving real con Stanley controller, rutas grabadas, y soporte para cualquier CarScript.">
+  <meta name="keywords" content="dayz bot driving, dayz ai vehicle, dayz npc driving, dayz autonomous vehicle, dayz mod, eai vehicle, dayz transport mod, dayz bus mod">
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 860px; margin: 0 auto; padding: 2rem 1rem; background: #0d1117; color: #c9d1d9; line-height: 1.7; }
+    h1 { color: #f0f6fc; border-bottom: 1px solid #30363d; padding-bottom: .5rem; }
+    h2 { color: #f0f6fc; margin-top: 2rem; border-bottom: 1px solid #21262d; padding-bottom: .3rem; }
+    h3 { color: #e6edf3; }
+    a { color: #58a6ff; }
+    code, pre { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: .2em .4em; font-family: monospace; font-size: .9em; }
+    pre { padding: 1rem; overflow-x: auto; }
+    pre code { background: none; border: none; padding: 0; }
+    blockquote { border-left: 4px solid #30363d; margin: 0; padding-left: 1rem; color: #8b949e; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #30363d; padding: .5rem .75rem; text-align: left; }
+    th { background: #161b22; color: #f0f6fc; }
+    .badge { display: inline-block; background: #238636; color: #fff; border-radius: 4px; padding: .1em .5em; font-size: .85em; margin-right: .3em; }
+    .scorecard { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1rem 1.5rem; margin: 1rem 0; }
+    .cta { background: #1f6feb22; border: 1px solid #1f6feb; border-radius: 8px; padding: 1rem 1.5rem; margin: 2rem 0; text-align: center; }
+  </style>
+</head>
+<body>
+
+<h1>BrigadaZ Transport</h1>
+<p><strong>Framework de eAI Vehicular para DayZ Standalone</strong><br>
+Un patrón técnico reusable para que cualquier vehículo del juego pueda ser manejado autónomamente por un NPC eAI, siguiendo una ruta grabada por un operador humano.</p>
+
+<blockquote>Proyecto público en desarrollo activo. v1.0 funcional y validada empíricamente con un servicio de bus de 24.92 km en Chernarus + generalización a Land Rover Defender.</blockquote>
+
+<div class="cta">
+  <strong>🎮 Jugador de DayZ?</strong><br>
+  <a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3732494954">Suscribite en Steam Workshop</a> — mirá NPCs manejando vehículos reales en el servidor.
+</div>
+
+<h2>¿Qué problema resuelve?</h2>
+<p>DayZ Standalone permite que los jugadores manejen vehículos, pero los NPCs no tienen capacidad funcional de conducir. Esto excluye categorías enteras de gameplay: transporte público, convoyes, patrullas motorizadas, misiones con NPCs vehiculares, logística automatizada.</p>
+<p>Este framework provee la <strong>infraestructura técnica completa</strong> para implementar esa capacidad: el NPC realmente conduce el vehículo aplicando inputs reales de volante, acelerador y freno — no teleport scripts. El resultado se ve y se siente como un vehículo manejado por una persona.</p>
+
+<h2>Validación empírica</h2>
+<div class="scorecard">
+  <strong>Bus canónico — servicio de transporte costero de Chernarus</strong>
+  <pre><code>Distancia:          24.92 km
+Duración:           31.3 min
+Paradas:            14 (todas activadas correctamente)
+Llegada a terminal: sí
+Dev lateral avg:    1.00m
+% dentro corredor:  94.5%</code></pre>
+</div>
+<p><strong>Generalización a Land Rover Defender:</strong> mismo framework, vehículo radicalmente distinto. Cambios al código del control: <strong>cero</strong>. Solo 5 campos en el JSON de configuración.</p>
+
+<h2>Cómo empezar</h2>
+<h3>Si sos jugador de DayZ</h3>
+<p>Suscribite en <a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3732494954">Steam Workshop (ID: 3732494954)</a>. Cuando el server lo cargue, vas a ver buses circulando. Subite con <code>F</code> cerca de la parada.</p>
+
+<h3>Si sos admin de server</h3>
+<ol>
+  <li>Suscribite al mod desde Workshop o descargá el código de <a href="https://github.com/sonom4n/BrigadaZ_Transport">este repo</a></li>
+  <li>Buildeá el PBO con tu key privada</li>
+  <li>Agregá <code>@BrigadaZ_Transport</code> a tus mods activos</li>
+  <li>Comandos admin (NUMPAD): <code>2</code> = iniciar, <code>1</code> = detener, <code>.</code> = pausar/reanudar</li>
+</ol>
+
+<h3>Si sos modder</h3>
+<ol>
+  <li>Cloná el <a href="https://github.com/sonom4n/BrigadaZ_Transport">repo</a></li>
+  <li>Leé el <a href="https://github.com/sonom4n/BrigadaZ_Transport/blob/main/PAPER_PUBLICO.md">paper técnico completo</a> (12 capítulos)</li>
+  <li>Leé el <a href="https://github.com/sonom4n/BrigadaZ_Transport/blob/main/MOD_CONTEXT_FOR_AI.md">AI knowledge pack</a> — subilo a tu asistente IA</li>
+</ol>
+
+<h2>Arquitectura</h2>
+<pre><code>PathLogger (cliente)
+  graba CSV del operador humano
+       │
+       ▼
+csv_to_route.ps1 (tool)
+  CSV → JSON con vehicle profile + waypoints
+       │
+       ▼
+BZBusService (server)
+  spawnea vehículo + driver al startup
+  Tick cada 500ms: Stanley controller, control predictivo de freno
+       │
+       ▼
+CarScript modded (server)
+  intercepta OnInput de eAI
+  aplica cached inputs del service
+  AT por RPM + anti-catapulta por aceleración medida</code></pre>
+
+<h2>Documentación</h2>
+<table>
+  <tr><th>Archivo</th><th>Para quién</th><th>Qué contiene</th></tr>
+  <tr><td><a href="https://github.com/sonom4n/BrigadaZ_Transport/blob/main/PAPER_PUBLICO.md">PAPER_PUBLICO.md</a></td><td>Modders, investigadores</td><td>Paper técnico completo: arquitectura, control vehicular, casos de uso, límites</td></tr>
+  <tr><td><a href="https://github.com/sonom4n/BrigadaZ_Transport/blob/main/MANUAL_eAI_VEHICLES.md">MANUAL_eAI_VEHICLES.md</a></td><td>Modders apurados</td><td>Versión esquemática del paper, 511 líneas</td></tr>
+  <tr><td><a href="https://github.com/sonom4n/BrigadaZ_Transport/blob/main/MOD_CONTEXT_FOR_AI.md">MOD_CONTEXT_FOR_AI.md</a></td><td>Asistentes IA</td><td>Knowledge pack para Claude/GPT/Gemini</td></tr>
+</table>
+
+<h2>Estado de desarrollo</h2>
+<p><span class="badge">v1.0</span> Funcional y publicado</p>
+<ul>
+  <li>✅ Stanley controller con corredor + control predictivo de freno</li>
+  <li>✅ Anti-catapulta por aceleración medida</li>
+  <li>✅ Vehicle profile configurable por JSON</li>
+  <li>✅ Auto-spawn al startup + auto-respawn al fin de línea</li>
+  <li>✅ Herencia automática validada (bus + Land Rover)</li>
+  <li>✅ Paper técnico documentado (12 capítulos)</li>
+  <li>⏳ Multi-rutas con N buses simultáneos</li>
+  <li>⏳ Adapter de BoatScript</li>
+  <li>🔮 ILC automatizado — Pathfinding reactivo híbrido</li>
+</ul>
+
+<h2>Dependencias</h2>
+<ul>
+  <li><strong>DayZ-Expansion-AI</strong> — capacidad base de NPCs vehiculares</li>
+  <li><strong>DayZ-Expansion-Core</strong> — dependencia de Expansion-AI</li>
+  <li><strong>DayZ-Expansion-Vehicles</strong> — para usar ExpansionBus, Expansion_Landrover, etc.</li>
+</ul>
+
+<h2>Licencia</h2>
+<p>Libre uso, modificación, repack y redistribución. Sin atribución obligatoria.</p>
+
+<h2>☕ Apoyar el proyecto</h2>
+<p>El framework es libre. Si querés contribuir al desarrollo de adapters de boat/heli, ILC automatizado y multi-rutas: <a href="https://paypal.me/Sonom4n">paypal.me/Sonom4n</a></p>
+
+<h2>Créditos</h2>
+<p>Desarrollado por <strong>Sonom4n e Hiperhipo10</strong> (BrigadaZ PVE Server). Asistente IA: Claude Opus 4.7 (Anthropic).</p>
+<p><em>"Mejor que un mod particular es un patrón que muchos adoptan, mejoran y reinterpretan para casos que nosotros nunca imaginamos."</em></p>
+
+</body>
+</html>
