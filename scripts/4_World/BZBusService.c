@@ -209,9 +209,24 @@ class BZBusService {
         EnsureProfileDir();
 
         if (!FileExist(CONFIG_PATH)) {
-            WriteDefaultConfig();
-            BZBusLog.Warn("Config generado en: " + CONFIG_PATH + " - completar waypoints y reiniciar.");
-            return;
+            // No hay config en profile. Intentar copiar el route canonico
+            // bundleado en el PBO. Esto le da al admin un bus funcional
+            // out-of-the-box sin tener que grabar su propia ruta.
+            string bundledPath = "BrigadaZ_Transport/data/default_route.json";
+            if (FileExist(bundledPath)) {
+                BZBusRouteConfig bundled = new BZBusRouteConfig();
+                JsonFileLoader<BZBusRouteConfig>.JsonLoadFile(bundledPath, bundled);
+                if (bundled.Waypoints.Count() > 0) {
+                    JsonFileLoader<BZBusRouteConfig>.JsonSaveFile(CONFIG_PATH, bundled);
+                    BZBusLog.Info("Default route canonico copiado de PBO a " + CONFIG_PATH);
+                } else {
+                    WriteDefaultConfig();
+                    BZBusLog.Warn("Bundled route vacio, generando template en " + CONFIG_PATH);
+                }
+            } else {
+                WriteDefaultConfig();
+                BZBusLog.Warn("Sin bundled route, template generado en " + CONFIG_PATH + " - completar waypoints y reiniciar.");
+            }
         }
 
         JsonFileLoader<BZBusRouteConfig>.JsonLoadFile(CONFIG_PATH, m_Config);
@@ -230,6 +245,21 @@ class BZBusService {
         def.AverageSpeedMS = 11.0;
         def.VehicleClass   = "ExpansionBus";
         def.DriverClass    = "eAI_SurvivorM_Boris";
+
+        // Attachments default para ExpansionBus, para que aunque el admin
+        // complete los waypoints manualmente, el bus al menos spawnee con
+        // ruedas/bateria/etc. Si usa otro vehiculo, debera editar este array.
+        def.Attachments.Insert("ExpansionBusWheel");
+        def.Attachments.Insert("ExpansionBusWheel");
+        def.Attachments.Insert("ExpansionBusWheel");
+        def.Attachments.Insert("ExpansionBusWheel");
+        def.Attachments.Insert("ExpansionBusWheelDouble");
+        def.Attachments.Insert("ExpansionBusWheelDouble");
+        def.Attachments.Insert("CarBattery");
+        def.Attachments.Insert("TruckBattery");
+        def.Attachments.Insert("SparkPlug");
+        def.Attachments.Insert("GlowPlug");
+        def.Attachments.Insert("CarRadiator");
 
         // Template con 9 waypoints alternando stop/intermedio. Coords en cero,
         // el admin completa a mano antes del primer arranque real.
