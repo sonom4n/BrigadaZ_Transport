@@ -264,6 +264,96 @@ time_s, x, y, z, heading_deg, speed_kmh, is_stop, gear, throttle, brake, steerin
 
 El operador graba conduciendo el vehículo normalmente. Los markers (NUMPAD 4) se usan para anotar puntos de interés que el framework usará luego para forzar paradas o aproximaciones de precisión.
 
+> **Punto importante**: PathLogger es **client-side**. El CSV NO se guarda en el server — se guarda en la PC del operador, en:
+>
+> ```
+> C:\Users\<windows_user>\AppData\Local\DayZ\BrigadaZ_Transport_PathLogger\path_<timestamp>.csv
+> ```
+>
+> Esto vale incluso si el server donde estás conectado es remoto (HostHavoc, Nitrado, dedicated, etc.). El admin tiene que ir a SU propia PC para recuperar la grabación. El archivo aparece sólo cuando NUMPAD 5 cierra la grabación, no mientras corre.
+
+### 4.4.1 Workflow: grabar una ruta nueva en otro mapa
+
+El framework es **map-agnostic**: el código de control no depende del mapa (Chernarus vanilla, Chernarus 2035, Livonia, Sakhal, Banov, etc.). Lo que sí depende del mapa son **las coordenadas de la ruta**. El JSON canónico bundleado en el PBO tiene coordenadas de Chernarus vanilla; en cualquier otro mapa el bus va a spawnear en lugares sin sentido.
+
+Para usar el mod en un mapa distinto, el admin tiene que grabar su propia ruta. Receta paso a paso:
+
+**Pre-requisitos**:
+- **El workflow es PC-only**. DayZ console (Xbox/PS) no soporta mods del Workshop, así que esto no aplica. Para PC, el operador necesita Windows con DayZ instalado y acceso al filesystem (no funciona desde servicios de cloud gaming sin acceso a AppData).
+- DayZ Tools instalado en tu PC local (para ejecutar `csv_to_route.ps1`)
+- El repo de GitHub clonado o descargado como ZIP (link en la descripción del Workshop)
+- Acceso al server: levantarlo, parar, editar `profiles/BrigadaZ_Transport/BZBusRoute.json`. El server puede ser local o remoto (hosted en HostHavoc, Nitrado, dedicated, etc.) — lo importante es que vos tengas la grabación, que ocurre en tu PC local sin importar dónde está el server.
+
+**Paso 1 — Limpiar el route bundleado (opcional pero recomendado)**
+
+Con el server detenido:
+
+```
+<server_path>/profiles/BrigadaZ_Transport/BZBusRoute.json
+```
+
+Renombralo a `BZBusRoute.json.old` o borralo. La próxima vez que el server arranque sin esta ruta cargada y vos grabes, vas a poder reemplazarla con la tuya.
+
+**Paso 2 — Grabar la trayectoria como humano**
+
+1. Levantá el server (con su ruta actual cargada, da igual cuál — la grabación no depende del estado del bus)
+2. Joineá como admin desde tu PC
+3. Conseguí cualquier vehículo (un auto propio, un vehículo que spawnees con COT, lo que sea)
+4. Manejá hasta el punto de inicio de tu ruta nueva
+5. **NUMPAD 5** → empieza a grabar
+6. Manejá la ruta completa, pasando por cada parada que vas a definir
+7. **NUMPAD 4** al estar parado en cada parada → marca esa fila del CSV como `is_stop=1`
+8. **NUMPAD 5** al final → cierra la grabación y guarda el CSV
+
+**Paso 3 — Encontrar el CSV**
+
+El CSV está en tu PC, no en el server:
+
+```
+C:\Users\<tu_user>\AppData\Local\DayZ\BrigadaZ_Transport_PathLogger\path_<timestamp>.csv
+```
+
+Si AppData no se ve en Explorer, pegá el path completo en la barra de direcciones.
+
+**Paso 4 — Convertir CSV a JSON**
+
+Abrí PowerShell (Win+R, escribí `powershell`, Enter). Navegá a la carpeta `tools/` del repo:
+
+```
+cd "C:\path\to\BrigadaZ_Transport-main\tools"
+```
+
+Corré:
+
+```
+.\csv_to_route.ps1 -InputCsv "C:\Users\<tu_user>\AppData\Local\DayZ\BrigadaZ_Transport_PathLogger\path_<timestamp>.csv"
+```
+
+El JSON aparece al lado del CSV. Si tu mapa usa paradas con nombres distintos a los de Chernarus, también podés editar `data/bus_stops.json` antes de correr el script para que detecte tus paradas por proximidad.
+
+**Paso 5 — Instalar la ruta nueva en el server**
+
+Subí el JSON generado al server. Para servers remotos (HostHavoc, etc.), usá el panel del proveedor para subir el archivo a:
+
+```
+<server_path>/profiles/BrigadaZ_Transport/BZBusRoute.json
+```
+
+**Paso 6 — Reiniciar y probar**
+
+Restart server, joineá ingame, **NUMPAD 2** spawnea el bus en tu ruta nueva. Si el bus arranca y avanza, ya está. Si no avanza, abrí el RPT del server, buscá líneas con `[BZBus]` para diagnosticar.
+
+**Troubleshooting común**:
+
+| Síntoma | Causa probable |
+|---|---|
+| Bus aparece pero no se mueve | Coordenadas del CSV no coinciden con superficie del mapa (Y=0). Revisá que grabaste en piso, no en agua/edificio |
+| Bus aparece sin ruedas | Olvidaste editar `Attachments` en el JSON para tu vehículo (el bundle solo tiene los del ExpansionBus) |
+| Bus aparece pero no detecta paradas | No apretaste NUMPAD 4 en las paradas, o `bus_stops.json` no tiene los nombres correctos |
+| Error de compilación al iniciar server | JSON mal formado (probablemente edición manual). Validá con un linter JSON antes de subir |
+
+Para todos los demás casos, abrir un Issue en el repo de GitHub con el log del RPT.
+
 ### 4.5 Coexistencia con el entorno del mundo
 
 DayZ tiene contenido del mundo (vehículos wreck, escombros, obstáculos) que puede interferir con vehículos que sigan trayectorias predefinidas. El framework no controla obstáculos en runtime; en cambio, provee mecanismos de limpieza del entorno por configuración:
