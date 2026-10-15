@@ -143,6 +143,8 @@ los outputs específicos donde el comportamiento del mod base es incorrecto.
 - **DayZ-Expansion-Core**: dependencia de Expansion-AI
 - **DayZ-Expansion-Vehicles**: para usar `ExpansionBus`, `Expansion_Landrover`, etc.
 
+**Versión de DayZ:** desde la v1.0.2 el mismo PBO corre en DayZ 1.29 y en DayZ 1.30. En 1.30 necesita Expansion actualizado a 1.30.
+
 - **@Brutalist Bus Stops** (Buddy/docbuddy): modelos físicos de las paradas en el mundo. El mod los referencia por classname; si el mod no está cargado, la mecánica del servicio (detección de proximidad por coordenadas + UI) sigue funcionando, pero los carteles físicos no aparecen visualmente
 
 ### Opcionales
@@ -167,6 +169,14 @@ los outputs específicos donde el comportamiento del mod base es incorrecto.
 - ✅ Auto-spawn al startup + auto-respawn al fin de línea
 - ✅ Paper técnico documentado (12 capítulos)
 - ✅ AI knowledge pack para asistencia con IA
+
+**v1.0.2 — Compatibilidad con DayZ 1.30** (octubre 2026):
+
+- ✅ Un solo PBO para DayZ 1.29 y 1.30 (`#ifdef DAYZ_1_29`): en 1.29 compila el código de la v1.0.1 (la lectura del velocímetro pasa por `BZBusNum.Kmh`, que en 1.29 devuelve el mismo valor)
+- ✅ En 1.30 el bus nunca se borra con alguien sentado (en 1.30 eso tumba el server): Boris se baja primero y, si quedan pasajeros, el bus espera a que se bajen antes de desaparecer
+- ✅ En 1.30 el respawn espera a que el bus anterior deje el punto de salida
+- ✅ En 1.30 cerrar la UI de la parada con ESC ya no abre el menú de pausa
+- ✅ En 1.30 el velocímetro puede dar NaN justo después del spawn y eso colgaba el server: ahora se usa la velocidad del cuerpo del vehículo mientras dure
 
 **v1.x — En desarrollo** (siguientes publicaciones):
 

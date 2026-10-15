@@ -87,7 +87,7 @@ modded class CarScript {
         // Medir aceleracion instantanea (km/h por segundo) para trigger
         // anti-catapulta. Si la aceleracion supera el umbral del vehicle
         // profile, shiftear UP para reducir torque a las ruedas.
-        float kmhNow = GetSpeedometerAbsolute();
+        float kmhNow = BZBusNum.Kmh(this);
         float tNow = GetGame().GetTickTime();
         float accelKmhPerSec = 0;
         if (m_BZBus_LastSampleTime > 0) {

@@ -123,7 +123,7 @@ class BZPathLogService {
         }
 
         int   gear        = car.GetGear();
-        float speedKmh    = car.GetSpeedometerAbsolute();
+        float speedKmh    = BZBusNum.Kmh(car);
         float rpm         = car.EngineGetRPM();
         float redlineRpm  = car.EngineGetRPMRedline();
         float t           = GetGame().GetTickTime();
@@ -208,7 +208,7 @@ class BZPathLogService {
         if (car) {
             pos      = car.GetPosition();
             dir      = car.GetDirection();
-            speedKmh = car.GetSpeedometerAbsolute();
+            speedKmh = BZBusNum.Kmh(car);
             gear     = car.GetGear();
             // Si alguno de estos getters no compila en esta version del juego,
             // el build va a fallar y los sacamos / reemplazamos por GetController().
@@ -283,7 +283,7 @@ class BZPathLogService {
         float speedKmh = 0.0;
         if (player) {
             Car car = Car.Cast(player.GetParent());
-            if (car) speedKmh = car.GetSpeedometerAbsolute();
+            if (car) speedKmh = BZBusNum.Kmh(car);
         }
 
         float km = m_TotalDistance / 1000.0;

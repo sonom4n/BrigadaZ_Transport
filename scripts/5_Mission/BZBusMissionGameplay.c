@@ -17,7 +17,18 @@ modded class MissionGameplay {
         // Cerrar el menu con ESC o F si esta abierto
         if (BZBusUI.s_Instance && (key == KeyCode.KC_ESCAPE || key == KeyCode.KC_F)) {
             GetGame().GetUIManager().HideScriptedMenu(BZBusUI.s_Instance);
+#ifdef DAYZ_1_29
             super.OnKeyPress(key);
+#else
+            // DayZ 1.30+: el ESC que cierra este menu tambien abria la pausa
+            // (la accion UAUIMenu dispara en el OnUpdate del vanilla, con el
+            // menu ya cerrado). Se consume la tecla: sin super y suprimiendo
+            // las dos acciones.
+            UAInput menuIn = GetUApi().GetInputByID(UAUIMenu);
+            if (menuIn) menuIn.Supress();
+            UAInput backIn = GetUApi().GetInputByID(UAUIBack);
+            if (backIn) backIn.Supress();
+#endif
             return;
         }
 

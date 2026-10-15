@@ -22,7 +22,7 @@ class CfgMods {
         credits = "Sonom4n, Hiperhipo10";
         author = "Sonom4n, Hiperhipo10";
         authorID = "0";
-        version = "1.0.0";
+        version = "1.0.2";
         extra = 0;
         type = "mod";
 

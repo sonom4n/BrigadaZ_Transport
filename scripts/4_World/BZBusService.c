@@ -62,6 +62,16 @@ class BZBusService {
     // (driver tarda en sentarse, motor en encender, etc).
     static const float  SPAWN_PREROLL_SECONDS     = 3.0;
 
+#ifndef DAYZ_1_29
+    // DayZ 1.30+: el bus viejo se retira en varios frames (BZBusRetiro). Si
+    // todavia esta a menos de este radio del wp 0, SpawnBus espera: si no, el
+    // bus nuevo nace encima del viejo (ValidateSpawn reintenta justo cuando el
+    // bus NO se movio del spawn).
+    static const float  SPAWN_RETIRO_RADIO        = 12.0;
+    static const int    SPAWN_RETIRO_POLL_MS      = 1000;
+    private int                  m_EsperaRetiroN;    // re-intentos de SpawnBus esperando el retiro del bus viejo
+#endif
+
     private EntityAI             m_Bus;
     private eAIBase              m_Driver;
     private eAIGroup             m_Group;
@@ -363,6 +373,23 @@ class BZBusService {
         startPos[1] = surfY + 0.5;
         m_SpawnInitialPos = startPos; // guardado para ValidateSpawn
 
+#ifndef DAYZ_1_29
+        // DayZ 1.30+: esperar a que el bus viejo deje el spawn (ver BZBusRetiro)
+        if (BZBusRetiro.BusCerca(startPos, SPAWN_RETIRO_RADIO)) {
+            m_EsperaRetiroN++;
+            if (m_EsperaRetiroN == 1 || m_EsperaRetiroN % 30 == 0) {
+                BZBusLog.Info("SpawnBus: el bus anterior se esta retirando a menos de " + SPAWN_RETIRO_RADIO + " m del wp 0, se espera (" + m_EsperaRetiroN + " s)");
+            }
+            m_SpawnAttempt--; // esperar no es un intento de spawn
+            GetGame().GetCallQueue(CALL_CATEGORY_GAMEPLAY).CallLater(this.SpawnBus, SPAWN_RETIRO_POLL_MS, false);
+            return;
+        }
+        if (m_EsperaRetiroN > 0) {
+            BZBusLog.Info("SpawnBus: spawn libre tras " + m_EsperaRetiroN + " s de espera");
+            m_EsperaRetiroN = 0;
+        }
+#endif
+
         string vc = m_Config.VehicleClass;
         if (m_VehicleClassOverride != "") vc = m_VehicleClassOverride;
         // initAI=true solo para vehiculos AI (ExpansionBus, etc). Vanilla cars => false.
@@ -451,8 +478,8 @@ class BZBusService {
         // targetSpeed=0, la cruise control aplica throttle bajo, el bus arranca
         // despacio. La validacion por distancia falla pero el spawn es valido.
         Car bus_v = Car.Cast(m_Bus);
-        if (bus_v && bus_v.GetSpeedometerAbsolute() > 0.5) {
-            BZBusLog.Info("ValidateSpawn OK: bus en movimiento (kmh=" + bus_v.GetSpeedometerAbsolute() + "), spawn exitoso, no retry");
+        if (bus_v && BZBusNum.Kmh(bus_v) > 0.5) {
+            BZBusLog.Info("ValidateSpawn OK: bus en movimiento (kmh=" + BZBusNum.Kmh(bus_v) + "), spawn exitoso, no retry");
             m_SpawnAttempt = 0;
             return;
         }
@@ -566,7 +593,7 @@ class BZBusService {
         // Si no hay segmento valido (bus muy lateral fuera del trazado, p.ej.
         // trabado contra una estructura), fallback a pure pursuit clasico.
         ComputeCorridorInfo(busPos);
-        float kmhForStanley = bus.GetSpeedometerAbsolute();
+        float kmhForStanley = BZBusNum.Kmh(bus);
         float vForStanley = kmhForStanley / 3.6;
         if (vForStanley < 1.0) vForStanley = 1.0; // safety: evitar dividir por 0 y atan saturando
         float targetYaw;
@@ -584,6 +611,11 @@ class BZBusService {
 
         // Diferencia normalizada a -PI..PI
         float dYaw = targetYaw - currentYaw;
+#ifndef DAYZ_1_29
+        // DayZ 1.30: con un NaN (posicion, orientacion o velocidad del vehiculo) los while de abajo no terminan
+        // nunca y el server se cuelga (10/10, en la 1.30 real). Ver BZBusNum.
+        if (!BZBusNum.Finite(dYaw)) dYaw = 0;
+#endif
         while (dYaw > Math.PI)  dYaw -= 2.0 * Math.PI;
         while (dYaw < -Math.PI) dYaw += 2.0 * Math.PI;
 
@@ -598,7 +630,7 @@ class BZBusService {
 
         float throttle = 1.0;
         float brake    = 0.0;
-        float kmh = bus.GetSpeedometerAbsolute();
+        float kmh = BZBusNum.Kmh(bus);
 
         // Distancia al proximo wp con isStop=true. Si no hay mas (fin de linea),
         // tratamos al ultimo waypoint como "stop" para que tambien frene al final.
@@ -791,6 +823,11 @@ class BZBusService {
 
             if (hasPrev) {
                 float dh = h - prevHeading;
+#ifndef DAYZ_1_29
+                // DayZ 1.30: con un NaN (posicion, orientacion o velocidad del vehiculo) los while de abajo no terminan
+                // nunca y el server se cuelga (10/10, en la 1.30 real). Ver BZBusNum.
+                if (!BZBusNum.Finite(dh)) dh = 0;
+#endif
                 while (dh > Math.PI)  dh -= 2.0 * Math.PI;
                 while (dh < -Math.PI) dh += 2.0 * Math.PI;
                 if (dh < 0) dh = -dh;
@@ -1007,7 +1044,7 @@ class BZBusService {
         // Asegurar motor encendido
         if (!bus.EngineIsOn()) {
             bus.EngineStart();
-            BZBusLog.Info("Tick: EngineStart, gear=" + bus.GetGear() + " kmh=" + bus.GetSpeedometerAbsolute());
+            BZBusLog.Info("Tick: EngineStart, gear=" + bus.GetGear() + " kmh=" + BZBusNum.Kmh(bus));
         }
 
         // === Activacion de m_AtStop por proximidad al proximo stop ===
@@ -1026,7 +1063,7 @@ class BZBusService {
         if (!m_AtStop && m_NextStopIndex >= 0 && m_NextStopIndex < m_Config.Waypoints.Count()) {
             BZWaypoint stopWp = m_Config.Waypoints[m_NextStopIndex];
             float distToStop = vector.Distance(m_Bus.GetPosition(), stopWp.GetVector());
-            float stopCheckKmh = bus.GetSpeedometerAbsolute();
+            float stopCheckKmh = BZBusNum.Kmh(bus);
             bool reachedRadius    = (distToStop <= STOP_FINAL_RADIUS);
             // Safety net: si el control predictivo falla y el bus queda parado
             // CERCA del cartel (<5m), igual activamos m_AtStop. Antes era <40m
@@ -1053,7 +1090,7 @@ class BZBusService {
             if (m_NextStopIndex >= 0 && m_NextStopIndex < m_Config.Waypoints.Count()) {
                 vector stopExactPos = m_Config.Waypoints[m_NextStopIndex].GetVector();
                 float distToExact = vector.Distance(m_Bus.GetPosition(), stopExactPos);
-                float stopAdjustKmh = bus.GetSpeedometerAbsolute();
+                float stopAdjustKmh = BZBusNum.Kmh(bus);
                 // Solo empujar si: estamos a 0.5-3m del exacto Y casi parado
                 if (distToExact > 0.5 && distToExact < 3.0 && stopAdjustKmh < 5.0) {
                     SetCachedInput(0.25, 0, 0);
@@ -1094,7 +1131,7 @@ class BZBusService {
             if (m_NextStopIndex >= 0 && m_NextStopIndex < m_Config.Waypoints.Count()) {
                 vector stopExactPos2 = m_Config.Waypoints[m_NextStopIndex].GetVector();
                 float distToExact2 = vector.Distance(m_Bus.GetPosition(), stopExactPos2);
-                float currentKmh2 = bus.GetSpeedometerAbsolute();
+                float currentKmh2 = BZBusNum.Kmh(bus);
                 if (distToExact2 > 0.5 && distToExact2 < 3.0 && currentKmh2 < 5.0) {
                     SetCachedInput(0.25, 0, 0);
                     return;
@@ -1114,7 +1151,7 @@ class BZBusService {
         // Fallback: si el vehiculo no esta en la tabla, dejar que la AT
         // (CarScript EOnPostSimulate) maneje el gear basandose en RPM.
         string vehicleClass = bus.GetType();
-        float currentKmh = bus.GetSpeedometerAbsolute();
+        float currentKmh = BZBusNum.Kmh(bus);
         int inferred = BZGearRangeTable.GetInstance().InferGear(vehicleClass, currentKmh, m_DesiredGear);
         if (inferred > 0) {
             m_DesiredGear = inferred;
@@ -1125,7 +1162,7 @@ class BZBusService {
         DriveTowards(bus, target);
 
         // Log de estado post-DriveTowards
-        BZBusLog.Info("Tick: gear=" + bus.GetGear() + " kmh=" + bus.GetSpeedometerAbsolute());
+        BZBusLog.Info("Tick: gear=" + bus.GetGear() + " kmh=" + BZBusNum.Kmh(bus));
 
         // Stuck timer: si no avanzamos nada en este tick, incrementar; si pasa
         // el timeout, forzar un advance manual (escape hatch para bug raro)
@@ -1443,8 +1480,28 @@ class BZBusService {
         GetGame().GetCallQueue(CALL_CATEGORY_GAMEPLAY).Remove(this.OnStopFinished);
         GetGame().GetCallQueue(CALL_CATEGORY_GAMEPLAY).Remove(this.ValidateSpawn);
 
+#ifdef DAYZ_1_29
         if (m_Driver) { m_Driver.Delete(); m_Driver = null; }
         if (m_Bus)    { m_Bus.Delete();    m_Bus    = null; }
+#else
+        // DayZ 1.30+: borrar el bus con alguien sentado (Boris o un pasajero)
+        // tumba el server, y borrar chofer y bus en el mismo frame tampoco es
+        // seguro. BZBusRetiro baja a Boris, lo borra afuera y borra el bus
+        // recien VACIO; con pasajeros, el bus espera a que se bajen.
+        GetGame().GetCallQueue(CALL_CATEGORY_GAMEPLAY).Remove(this.SpawnBus); // un SpawnBus esperando el retiro anterior
+        m_EsperaRetiroN = 0;
+        // sin waypoint, Boris no maneja el bus viejo mientras se baja
+        if (m_Group) m_Group.ClearWaypoints();
+        if (m_Bus) {
+            array<Human> retiroBots = new array<Human>();
+            if (m_Driver) retiroBots.Insert(m_Driver);
+            BZBusRetiro.Retirar(m_Bus, retiroBots, "Bus Costero");
+        } else if (m_Driver) {
+            m_Driver.Delete(); // sin bus no hay donde este sentado
+        }
+        m_Driver = null;
+        m_Bus    = null;
+#endif
         m_Group = null;
     }
 
@@ -1533,7 +1590,7 @@ class BZBusService {
         if (heading < 0) heading += 360.0;
 
         float t        = GetGame().GetTickTime() - m_AILogStartTime;
-        float speedKmh = bus.GetSpeedometerAbsolute();
+        float speedKmh = BZBusNum.Kmh(bus);
         int   gear     = bus.GetGear();
         float throttle = m_CachedThrottle;
         float brake    = m_CachedBrake;
@@ -1792,7 +1849,7 @@ class BZBusService {
         float heading = Math.Atan2(dir[0], dir[2]) * Math.RAD2DEG;
         if (heading < 0) heading += 360.0;
 
-        float speedKmh = bus.GetSpeedometerAbsolute();
+        float speedKmh = BZBusNum.Kmh(bus);
         float rpm      = bus.EngineGetRPM();
         int   gear     = bus.GetGear();
         float actualThrottle = m_CachedThrottle;
